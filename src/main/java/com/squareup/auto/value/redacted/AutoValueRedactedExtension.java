@@ -16,7 +16,7 @@
 package com.squareup.auto.value.redacted;
 
 import com.google.auto.service.AutoService;
-import com.google.auto.value.AutoValueExtension;
+import com.google.auto.value.extension.AutoValueExtension;
 import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.ArrayTypeName;
 import com.squareup.javapoet.ClassName;
@@ -36,7 +36,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 
 @AutoService(AutoValueExtension.class)
-public final class AutoValueRedactedExtension implements AutoValueExtension {
+public final class AutoValueRedactedExtension extends AutoValueExtension {
 
   @Override
   public boolean applicable(Context context) {
@@ -47,11 +47,6 @@ public final class AutoValueRedactedExtension implements AutoValueExtension {
       }
     }
 
-    return false;
-  }
-
-  @Override
-  public boolean mustBeAtEnd(Context context) {
     return false;
   }
 
@@ -106,33 +101,40 @@ public final class AutoValueRedactedExtension implements AutoValueExtension {
     for (Map.Entry<String, ExecutableElement> entry : properties.entrySet()) {
       String propertyName = entry.getKey();
       ExecutableElement propertyElement = entry.getValue();
+      String methodName = propertyElement.getSimpleName().toString();
       TypeName propertyType = TypeName.get(entry.getValue().getReturnType());
       ImmutableSet<String> propertyAnnotations = getAnnotations(propertyElement);
+
+      boolean redacted = propertyAnnotations.contains("Redacted");
+      boolean nullable = propertyAnnotations.contains("Nullable");
+      boolean last = ++count == properties.size();
+
+      // Special-case this configuration since we can pre-concat constant strings.
+      if (redacted && !nullable) {
+        builder.addCode("+ \"$N=██", propertyName);
+        if (!last) builder.addCode(", ");
+        builder.addCode("\"\n");
+        continue;
+      }
 
       builder.addCode("+ \"$N=\" + ", propertyName);
 
       CodeBlock propertyToString;
-      if (propertyAnnotations.contains("Redacted")) {
-        propertyToString = CodeBlock.builder() //
-            .add("\"██\"") //
-            .build();
+      if (redacted) {
+        propertyToString = CodeBlock.of("\"██\"");
       } else if (propertyType instanceof ArrayTypeName) {
-        propertyToString = CodeBlock.builder() //
-            .add("$T.toString($N())", Arrays.class, propertyName) //
-            .build();
+        propertyToString = CodeBlock.of("$T.toString($N())", Arrays.class, methodName);
       } else {
-        propertyToString = CodeBlock.builder() //
-            .add("$N()", propertyName) //
-            .build();
+        propertyToString = CodeBlock.of("$N()", methodName);
       }
 
-      if (propertyAnnotations.contains("Nullable")) {
-        builder.addCode("($N() != null ? $L : null)", propertyName, propertyToString);
+      if (nullable) {
+        builder.addCode("($N() != null ? $L : null)", methodName, propertyToString);
       } else {
         builder.addCode(propertyToString);
       }
 
-      if (count++ < properties.size() - 1) {
+      if (!last) {
         builder.addCode(" + \", \"");
       }
 

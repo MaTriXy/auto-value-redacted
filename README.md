@@ -3,6 +3,7 @@
 An extension for Google's [AutoValue](https://github.com/google/auto/tree/master/value) that omits
 `@Redacted` field values from `toString()`.
 
+
 ## Usage
 
 Include the extension in your project, define a `@Redacted` annotation, and apply it to any
@@ -16,25 +17,34 @@ public @interface Redacted {
 ```
 
 ```java
-@AutoValue public abstract class User {
-  @Redacted public abstract String name();
+@AutoValue
+public abstract class User {
+  public abstract String name();
+  @Redacted public abstract String phoneNumber();
 }
 ```
+
+When you call `toString()` any `@Redacted` properties are hidden:
+```
+User{name=Bob, phoneNumber=██}
+```
+
 
 ## Download
 
 Add a Gradle dependency:
 
 ```groovy
-compile 'com.squareup.auto.value:auto-value-redacted:0.1-SNAPSHOT'
+apt 'com.squareup.auto.value:auto-value-redacted:1.0.0'
 ```
+(Using the [android-apt][apt] plugin)
 
 or Maven:
 ```xml
 <dependency>
   <groupId>com.squareup.auto.value</groupId>
   <artifactId>auto-value-redacted</artifactId>
-  <version>0.1-SNAPSHOT</version>
+  <version>1.0.0</version>
   <scope>provided</scope>
 </dependency>
 ```
@@ -64,3 +74,4 @@ limitations under the License.
 
 
  [snap]: https://oss.sonatype.org/content/repositories/snapshots/
+ [apt]: https://bitbucket.org/hvisser/android-apt
